@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.graphics.asComposeImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -21,20 +22,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import net.sourceforge.plantuml.FileFormat
-import net.sourceforge.plantuml.FileFormatOption
-import net.sourceforge.plantuml.SourceStringReader
+import com.example.devfastjavafx.service.PlantUmlRenderingService
 import org.jetbrains.jewel.ui.component.ActionButton
 import org.jetbrains.jewel.ui.component.Text
-import java.io.ByteArrayOutputStream
-import org.jetbrains.skia.Bitmap
-import org.jetbrains.skia.Image as SkiaImage
 import com.intellij.openapi.ide.CopyPasteManager
 import java.awt.datatransfer.StringSelection
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
+import org.jetbrains.jewel.ui.component.CircularProgressIndicator
 
 @Composable
 fun MarkdownRenderer(blocks: List<MarkdownBlock>, project: Project) {
@@ -48,7 +45,7 @@ fun MarkdownRenderer(blocks: List<MarkdownBlock>, project: Project) {
                 is MarkdownBlock.Heading -> HeadingBlock(block)
                 is MarkdownBlock.Text -> TextBlock(block)
                 is MarkdownBlock.Code -> CodeBlock(block, project)
-                is MarkdownBlock.PlantUML -> PlantUMLBlock(block)
+                is MarkdownBlock.PlantUML -> PlantUMLBlock(block, project)
                 is MarkdownBlock.Image -> ImageBlock(block)
                 is MarkdownBlock.Error -> ErrorBlock(block)
             }
@@ -79,7 +76,7 @@ fun TextBlock(block: MarkdownBlock.Text) {
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun CodeBlock(block: MarkdownBlock.Code, project: Project) {
+fun CodeBlock(block: MarkdownBlock.Code, project: Project?) {
     val annotatedContent = remember(block.content, block.language) {
         highlightCode(block.content, block.language)
     }
@@ -98,7 +95,7 @@ fun CodeBlock(block: MarkdownBlock.Code, project: Project) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(text = block.filename, color = Color.Gray, fontSize = 12.sp)
-            if (isHovered) {
+            if (isHovered && project != null) {
                 Row {
                     ActionButton(onClick = {
                         CopyPasteManager.getInstance().setContents(StringSelection(block.content))
@@ -153,31 +150,53 @@ fun highlightCode(content: String, language: String): AnnotatedString = buildAnn
 }
 
 @Composable
-fun PlantUMLBlock(block: MarkdownBlock.PlantUML) {
-    val imageBitmap = remember(block.content) {
-        try {
-            val reader = SourceStringReader(block.content)
-            val os = ByteArrayOutputStream()
-            reader.outputImage(os, FileFormatOption(FileFormat.PNG))
-            val bytes = os.toByteArray()
-            val skiaImage = SkiaImage.makeFromEncoded(bytes)
-            val bitmap = Bitmap.makeFromImage(skiaImage)
-            bitmap.asComposeImageBitmap()
-        } catch (e: Exception) {
-            null
+fun PlantUMLBlock(block: MarkdownBlock.PlantUML, project: Project) {
+    var imageBitmap by remember(block.content) { mutableStateOf<ImageBitmap?>(null) }
+    var isLoading by remember(block.content) { mutableStateOf(true) }
+    var errorOccurred by remember(block.content) { mutableStateOf(false) }
+
+    LaunchedEffect(block.content) {
+        isLoading = true
+        errorOccurred = false
+        val result = PlantUmlRenderingService.getInstance().render(block.content)
+        if (result != null) {
+            imageBitmap = result
+        } else {
+            errorOccurred = true
         }
+        isLoading = false
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(text = "Diagram: ${block.filename}", fontWeight = FontWeight.SemiBold)
-        if (imageBitmap != null) {
-            Image(
-                bitmap = imageBitmap,
-                contentDescription = block.filename,
-                modifier = Modifier.fillMaxWidth()
-            )
-        } else {
-            ErrorBlock(MarkdownBlock.Error("Failed to render PlantUML: ${block.filename}"))
+        Text(
+            text = "Diagram: ${block.filename}",
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                    contentAlignment = androidx.compose.ui.Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+            errorOccurred -> {
+                Column {
+                    ErrorBlock(MarkdownBlock.Error("Failed to render PlantUML: ${block.filename}"))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    CodeBlock(MarkdownBlock.Code(block.filename, block.content, "puml"), null)
+                }
+            }
+            imageBitmap != null -> {
+                Image(
+                    bitmap = imageBitmap!!,
+                    contentDescription = block.filename,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }
