@@ -1,6 +1,7 @@
 plugins {
     id("java")
     kotlin("jvm") version "1.9.22"
+    kotlin("plugin.serialization") version "1.9.22"
     id("org.jetbrains.intellij.platform") version "2.1.0"
 }
 
@@ -19,6 +20,13 @@ dependencies {
         intellijIdeaUltimate("2024.3")
         instrumentationTools()
     }
+
+    implementation("io.ktor:ktor-client-core:2.3.7")
+    implementation("io.ktor:ktor-client-cio:2.3.7")
+    implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
+
+    testImplementation(kotlin("test"))
 }
 
 intellijPlatform {
