@@ -24,3 +24,11 @@ data class GitLabFile(
     val commit_id: String,
     val last_commit_id: String
 )
+
+@Serializable
+data class ComponentMetadata(
+    val name: String,
+    val description: String = "",
+    val tags: List<String> = emptyList(),
+    val id: String = ""
+)
