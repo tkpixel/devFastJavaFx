@@ -11,6 +11,7 @@ group = "com.example.devfastjavafx"
 version = "0.1.0-alpha"
 
 repositories {
+    google()
     mavenCentral()
     maven("https://packages.jetbrains.team/maven/p/kpm/public/")
     intellijPlatform {
