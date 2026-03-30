@@ -8,7 +8,7 @@ import org.jetbrains.jewel.bridge.addComposeTab
 class DevFastToolWindowFactory : ToolWindowFactory {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         toolWindow.addComposeTab("Templates") {
-            DevFastToolWindowContent()
+            DevFastToolWindowContent(project)
         }
     }
 }
