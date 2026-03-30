@@ -8,12 +8,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.devfastjavafx.cache.TemplateCache
+import com.example.devfastjavafx.ui.markdown.MarkdownParser
+import com.example.devfastjavafx.ui.markdown.MarkdownRenderer
+import com.intellij.openapi.application.PathManager
 import org.jetbrains.jewel.ui.Orientation
 import org.jetbrains.jewel.ui.component.Divider
 import org.jetbrains.jewel.ui.component.HorizontalSplitLayout
 import org.jetbrains.jewel.ui.component.Text
 import org.jetbrains.jewel.ui.component.rememberSplitLayoutState
-import java.io.File
+import java.nio.file.Paths
 
 @Composable
 fun DevFastToolWindowContent() {
@@ -52,25 +55,25 @@ fun DevFastToolWindowContent() {
             }
         },
         second = {
-            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                if (selectedComponent != null) {
-                    Text(text = "Component: $selectedComponent")
-                    Spacer(modifier = Modifier.height(8.dp))
+            if (selectedComponent != null) {
+                val componentDirPath = Paths.get(PathManager.getSystemPath(), "devFastJavaFx/templates", selectedComponent!!)
+                val markdownParser = remember(selectedComponent) { MarkdownParser(componentDirPath) }
 
-                    val readmePath = allFiles.find { it.contains(selectedComponent!!) && it.endsWith("README.md") }
-                    if (readmePath != null) {
-                        val readmeContent = TemplateCache.loadTemplate(readmePath)
-                        if (readmeContent != null) {
-                            Text(text = "Description:")
-                            Text(text = readmeContent)
-                        }
-                    } else {
-                        Text(text = "No README.md found for this component.")
+                val readmePath = allFiles.find { it.contains(selectedComponent!!) && it.endsWith("README.md") }
+                if (readmePath != null) {
+                    val readmeContent = TemplateCache.loadTemplate(readmePath)
+                    if (readmeContent != null) {
+                        val blocks = remember(readmeContent) { markdownParser.parse(readmeContent) }
+                        MarkdownRenderer(blocks)
                     }
                 } else {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                        Text(text = "Select a component to see details")
+                    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                        Text(text = "No README.md found for component: $selectedComponent")
                     }
+                }
+            } else {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    Text(text = "Select a component to see details")
                 }
             }
         }
