@@ -13,11 +13,18 @@ import org.jetbrains.jewel.ui.component.Divider
 import org.jetbrains.jewel.ui.component.HorizontalSplitLayout
 import org.jetbrains.jewel.ui.component.Text
 import org.jetbrains.jewel.ui.component.rememberSplitLayoutState
+import java.io.File
 
 @Composable
 fun DevFastToolWindowContent() {
-    val templates = remember { TemplateCache.listCachedTemplates() }
-    var selectedTemplate by remember { mutableStateOf<String?>(null) }
+    val allFiles = remember { TemplateCache.listCachedTemplates() }
+    val components = remember(allFiles) {
+        // Group by directory and identify components by presence of manifest.json
+        allFiles.filter { it.endsWith("manifest.json") }
+            .map { it.substringBeforeLast("/manifest.json").substringAfterLast("/") }
+            .distinct()
+    }
+    var selectedComponent by remember { mutableStateOf<String?>(null) }
     val splitLayoutState = rememberSplitLayoutState(0.3f)
 
     HorizontalSplitLayout(
@@ -26,19 +33,19 @@ fun DevFastToolWindowContent() {
         first = {
             Column(modifier = Modifier.fillMaxSize()) {
                 Text(
-                    text = "Components",
+                    text = "JavaFX Components",
                     modifier = Modifier.padding(8.dp)
                 )
                 Divider(orientation = Orientation.Horizontal)
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(templates) { template ->
+                    items(components) { component ->
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { selectedTemplate = template }
+                                .clickable { selectedComponent = component }
                                 .padding(8.dp)
                         ) {
-                            Text(text = template)
+                            Text(text = component)
                         }
                     }
                 }
@@ -46,10 +53,20 @@ fun DevFastToolWindowContent() {
         },
         second = {
             Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                if (selectedTemplate != null) {
-                    Text(text = "Details for: $selectedTemplate")
+                if (selectedComponent != null) {
+                    Text(text = "Component: $selectedComponent")
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = "Template content preview will be here.")
+
+                    val readmePath = allFiles.find { it.contains(selectedComponent!!) && it.endsWith("README.md") }
+                    if (readmePath != null) {
+                        val readmeContent = TemplateCache.loadTemplate(readmePath)
+                        if (readmeContent != null) {
+                            Text(text = "Description:")
+                            Text(text = readmeContent)
+                        }
+                    } else {
+                        Text(text = "No README.md found for this component.")
+                    }
                 } else {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
                         Text(text = "Select a component to see details")
