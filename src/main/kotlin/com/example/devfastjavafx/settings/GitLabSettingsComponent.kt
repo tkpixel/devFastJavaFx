@@ -2,7 +2,7 @@ package com.example.devfastjavafx.settings
 
 import com.example.devfastjavafx.api.GitLabClient
 import com.intellij.icons.AllIcons
-import com.intellij.ui.AnimatedIcon
+import com.intellij.util.ui.AsyncProcessIcon
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPasswordField
 import com.intellij.ui.components.JBTextField
@@ -16,6 +16,7 @@ class GitLabSettingsComponent(private val scope: CoroutineScope) {
     private val projectIdField = JBTextField()
     private val tokenField = JBPasswordField()
     private val feedbackLabel = JBLabel()
+    private val loadingIcon = AsyncProcessIcon("GitLabTestConnection").apply { isVisible = false }
 
     val panel: JPanel = panel {
         group("GitLab Connection") {
@@ -32,6 +33,7 @@ class GitLabSettingsComponent(private val scope: CoroutineScope) {
                 button("Test Connection") {
                     testConnection()
                 }
+                cell(loadingIcon)
                 cell(feedbackLabel)
             }
         }
@@ -43,8 +45,10 @@ class GitLabSettingsComponent(private val scope: CoroutineScope) {
         val token = token
 
         feedbackLabel.text = "Testing..."
-        feedbackLabel.icon = AnimatedIcon.Default.INSTANCE
+        feedbackLabel.icon = null
         feedbackLabel.isVisible = true
+        loadingIcon.isVisible = true
+        loadingIcon.resume()
 
         scope.launch {
             val result = try {
@@ -66,6 +70,9 @@ class GitLabSettingsComponent(private val scope: CoroutineScope) {
             } catch (e: Exception) {
                 Result.failure(Exception("Connection failed: ${e.message ?: "Unknown error"}"))
             }
+
+            loadingIcon.suspend()
+            loadingIcon.isVisible = false
 
             result.onSuccess { message ->
                 feedbackLabel.text = message

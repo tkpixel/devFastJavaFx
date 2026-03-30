@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "com.example.devfastjavafx"
-version = "0.1.0-alpha"
+version = "0.2.0-beta"
 
 repositories {
     google()
@@ -47,7 +47,7 @@ intellijPlatform {
     pluginConfiguration {
         id = "com.example.devfastjavafx"
         name = "devFastJavaFx"
-        version = "0.1.0-alpha"
+        version = "0.2.0-beta"
 
         vendor {
             name = "Example"
