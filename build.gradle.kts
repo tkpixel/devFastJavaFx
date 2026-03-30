@@ -30,6 +30,9 @@ dependencies {
     implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
 
+    implementation("com.vladsch.flexmark:flexmark-all:0.64.8")
+    implementation("net.sourceforge.plantuml:plantuml:1.2023.12")
+
     implementation("org.jetbrains.jewel:jewel-ide-laf-bridge-243:0.27.0")
     api(compose.desktop.currentOs) {
         exclude(group = "org.jetbrains.compose.material")
