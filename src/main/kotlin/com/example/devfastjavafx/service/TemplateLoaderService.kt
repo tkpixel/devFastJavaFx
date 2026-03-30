@@ -3,6 +3,7 @@ package com.example.devfastjavafx.service
 import com.example.devfastjavafx.api.GitLabClient
 import com.example.devfastjavafx.cache.TemplateCache
 import com.example.devfastjavafx.credentials.GitLabCredentialsManager
+import com.example.devfastjavafx.settings.GitLabSettingsState
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.logger
 import kotlinx.coroutines.CoroutineScope
@@ -14,26 +15,27 @@ import java.util.*
 class TemplateLoaderService(private val scope: CoroutineScope) {
     private val LOG = logger<TemplateLoaderService>()
 
-    // These should ideally come from configuration
-    private val GITLAB_BASE_URL = "https://gitlab.example.com"
-    private val PROJECT_ID = "12345"
     private val TEMPLATE_PATH = "templates"
 
     fun loadTemplates() {
         scope.launch(Dispatchers.IO) {
             try {
+                val settings = GitLabSettingsState.getInstance().state
+                val baseUrl = settings.gitlabUrl
+                val projectId = settings.projectId
                 val token = GitLabCredentialsManager.getToken()
-                if (token == null) {
-                    LOG.warn("GitLab token not found. Skipping template loading.")
+
+                if (baseUrl.isEmpty() || projectId.isEmpty() || token.isNullOrEmpty()) {
+                    LOG.warn("GitLab settings or token not configured. Skipping template loading.")
                     return@launch
                 }
 
-                val client = GitLabClient(GITLAB_BASE_URL, token)
+                val client = GitLabClient(baseUrl, token)
                 try {
-                    val tree = client.getRepositoryTree(PROJECT_ID, TEMPLATE_PATH)
+                    val tree = client.getRepositoryTree(projectId, TEMPLATE_PATH)
                     for (item in tree) {
                         if (item.type == "blob") {
-                            val file = client.getFileContent(PROJECT_ID, item.path)
+                            val file = client.getFileContent(projectId, item.path)
                             val content = if (file.encoding == "base64") {
                                 String(Base64.getMimeDecoder().decode(file.content))
                             } else {
