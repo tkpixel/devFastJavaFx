@@ -11,6 +11,7 @@ import com.example.devfastjavafx.cache.TemplateCache
 import com.example.devfastjavafx.ui.markdown.MarkdownParser
 import com.example.devfastjavafx.ui.markdown.MarkdownRenderer
 import com.intellij.openapi.application.PathManager
+import com.intellij.openapi.project.Project
 import org.jetbrains.jewel.ui.Orientation
 import org.jetbrains.jewel.ui.component.Divider
 import org.jetbrains.jewel.ui.component.HorizontalSplitLayout
@@ -19,7 +20,7 @@ import org.jetbrains.jewel.ui.component.rememberSplitLayoutState
 import java.nio.file.Paths
 
 @Composable
-fun DevFastToolWindowContent() {
+fun DevFastToolWindowContent(project: Project) {
     val allFiles = remember { TemplateCache.listCachedTemplates() }
     val components = remember(allFiles) {
         // Group by directory and identify components by presence of manifest.json
@@ -64,7 +65,7 @@ fun DevFastToolWindowContent() {
                     val readmeContent = TemplateCache.loadTemplate(readmePath)
                     if (readmeContent != null) {
                         val blocks = remember(readmeContent) { markdownParser.parse(readmeContent) }
-                        MarkdownRenderer(blocks)
+                        MarkdownRenderer(blocks, project)
                     }
                 } else {
                     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {

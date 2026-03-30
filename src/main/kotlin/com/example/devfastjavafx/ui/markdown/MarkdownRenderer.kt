@@ -6,10 +6,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.graphics.asComposeImageBitmap
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -32,10 +34,10 @@ import java.awt.datatransfer.StringSelection
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.fileEditor.FileEditorManager
-import com.intellij.openapi.project.ProjectManager
+import com.intellij.openapi.project.Project
 
 @Composable
-fun MarkdownRenderer(blocks: List<MarkdownBlock>) {
+fun MarkdownRenderer(blocks: List<MarkdownBlock>, project: Project) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -45,7 +47,7 @@ fun MarkdownRenderer(blocks: List<MarkdownBlock>) {
             when (block) {
                 is MarkdownBlock.Heading -> HeadingBlock(block)
                 is MarkdownBlock.Text -> TextBlock(block)
-                is MarkdownBlock.Code -> CodeBlock(block)
+                is MarkdownBlock.Code -> CodeBlock(block, project)
                 is MarkdownBlock.PlantUML -> PlantUMLBlock(block)
                 is MarkdownBlock.Image -> ImageBlock(block)
                 is MarkdownBlock.Error -> ErrorBlock(block)
@@ -75,16 +77,20 @@ fun TextBlock(block: MarkdownBlock.Text) {
     Text(text = block.content)
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun CodeBlock(block: MarkdownBlock.Code) {
+fun CodeBlock(block: MarkdownBlock.Code, project: Project) {
     val annotatedContent = remember(block.content, block.language) {
         highlightCode(block.content, block.language)
     }
+    var isHovered by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color(0xFF2B2B2B), RoundedCornerShape(4.dp))
+            .onPointerEvent(PointerEventType.Enter) { isHovered = true }
+            .onPointerEvent(PointerEventType.Exit) { isHovered = false }
             .padding(8.dp)
     ) {
         Row(
@@ -92,25 +98,28 @@ fun CodeBlock(block: MarkdownBlock.Code) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(text = block.filename, color = Color.Gray, fontSize = 12.sp)
-            Row {
-                ActionButton(onClick = {
-                    CopyPasteManager.getInstance().setContents(StringSelection(block.content))
-                }) {
-                    Text("Copy")
-                }
-                Spacer(modifier = Modifier.width(4.dp))
-                ActionButton(onClick = {
-                    val project = ProjectManager.getInstance().openProjects.firstOrNull() ?: return@ActionButton
-                    val editor = FileEditorManager.getInstance(project).selectedTextEditor ?: return@ActionButton
-                    val document = editor.document
-                    val caretModel = editor.caretModel
-                    val offset = caretModel.offset
-
-                    WriteCommandAction.runWriteCommandAction(project) {
-                        document.insertString(offset, block.content)
+            if (isHovered) {
+                Row {
+                    ActionButton(onClick = {
+                        CopyPasteManager.getInstance().setContents(StringSelection(block.content))
+                    }) {
+                        Text("Copy")
                     }
-                }) {
-                    Text("Insert")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    ActionButton(onClick = {
+                        val editor = FileEditorManager.getInstance(project).selectedTextEditor ?: return@ActionButton
+                        val document = editor.document
+                        val caretModel = editor.caretModel
+                        val offset = caretModel.offset
+
+                        WriteCommandAction.runWriteCommandAction(project) {
+                            WriteAction.run<Throwable> {
+                                document.insertString(offset, block.content)
+                            }
+                        }
+                    }) {
+                        Text("Insert")
+                    }
                 }
             }
         }
