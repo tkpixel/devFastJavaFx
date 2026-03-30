@@ -31,6 +31,12 @@ class GitLabClient(
         }.body()
     }
 
+    suspend fun getProject(projectId: String): GitLabProject {
+        return client.get("$baseUrl/api/v4/projects/$projectId") {
+            privateToken?.let { header("PRIVATE-TOKEN", it) }
+        }.body()
+    }
+
     suspend fun getFileContent(projectId: String, filePath: String, ref: String = "main"): GitLabFile {
         val encodedFilePath = URLEncoder.encode(filePath, StandardCharsets.UTF_8.toString())
         return client.get("$baseUrl/api/v4/projects/$projectId/repository/files/$encodedFilePath") {

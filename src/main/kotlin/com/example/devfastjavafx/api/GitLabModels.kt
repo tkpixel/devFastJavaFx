@@ -12,6 +12,14 @@ data class GitLabTreeItem(
 )
 
 @Serializable
+data class GitLabProject(
+    val id: String,
+    val name: String,
+    val description: String? = null,
+    val web_url: String
+)
+
+@Serializable
 data class GitLabFile(
     val file_name: String,
     val file_path: String,
