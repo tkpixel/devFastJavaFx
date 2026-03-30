@@ -9,5 +9,6 @@
     <extensions defaultExtensionNs="com.intellij">
         <applicationService serviceImplementation="com.example.devfastjavafx.service.TemplateLoaderService"/>
         <postStartupActivity implementation="com.example.devfastjavafx.activity.TemplateStartupActivity"/>
+        <toolWindow id="DevFastJavaFx" anchor="right" factoryClass="com.example.devfastjavafx.ui.DevFastToolWindowFactory" />
     </extensions>
 </idea-plugin>

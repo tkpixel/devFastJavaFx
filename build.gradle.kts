@@ -1,8 +1,10 @@
 plugins {
     id("java")
-    kotlin("jvm") version "1.9.22"
-    kotlin("plugin.serialization") version "1.9.22"
+    kotlin("jvm") version "2.0.21"
+    kotlin("plugin.serialization") version "2.0.21"
     id("org.jetbrains.intellij.platform") version "2.1.0"
+    id("org.jetbrains.compose") version "1.7.1"
+    id("org.jetbrains.kotlin.plugin.compose") version "2.0.21"
 }
 
 group = "com.example.devfastjavafx"
@@ -10,6 +12,7 @@ version = "0.1.0-alpha"
 
 repositories {
     mavenCentral()
+    maven("https://packages.jetbrains.team/maven/p/kpm/public/")
     intellijPlatform {
         defaultRepositories()
     }
@@ -25,6 +28,12 @@ dependencies {
     implementation("io.ktor:ktor-client-cio:2.3.7")
     implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
+
+    implementation("org.jetbrains.jewel:jewel-ide-laf-bridge-243:0.27.0")
+    api(compose.desktop.currentOs) {
+        exclude(group = "org.jetbrains.compose.material")
+        exclude(group = "org.jetbrains.kotlinx")
+    }
 
     testImplementation(kotlin("test"))
 }
