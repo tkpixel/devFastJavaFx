@@ -29,6 +29,20 @@ import java.nio.file.Paths
 
 private val json = Json { ignoreUnknownKeys = true }
 
+sealed class TemplateTreeItem {
+    data class Folder(
+        val name: String,
+        val relativePath: String,
+        val children: MutableMap<String, TemplateTreeItem> = mutableMapOf(),
+        var isExpanded: Boolean = false
+    ) : TemplateTreeItem()
+
+    data class Component(
+        val metadata: ComponentMetadata,
+        val relativePath: String
+    ) : TemplateTreeItem()
+}
+
 @Composable
 fun DevFastToolWindowContent(project: Project) {
     val allFiles = remember { TemplateCache.listCachedTemplates() }
@@ -38,34 +52,82 @@ fun DevFastToolWindowContent(project: Project) {
                 TemplateCache.loadTemplate(path)?.let { content ->
                     try {
                         val metadata = json.decodeFromString<ComponentMetadata>(content)
-                        val id = path.substringBeforeLast("/manifest.json").substringAfterLast("/")
-                        metadata.copy(id = id)
+                        val relativePath = path.substringBeforeLast("/manifest.json")
+                        metadata.copy(id = relativePath) // Use the full relative path as the unique ID
                     } catch (e: Exception) {
                         null
                     }
                 }
             }
     }
+
+    val treeRoot = remember(componentsMetadata) {
+        val root = TemplateTreeItem.Folder("", "")
+        for (component in componentsMetadata) {
+            val parts = component.id.split("/")
+            var currentFolder = root
+            for (i in 0 until parts.size - 1) {
+                val folderName = parts[i]
+                val folderPath = parts.take(i + 1).joinToString("/")
+                currentFolder = currentFolder.children.getOrPut(folderName) {
+                    TemplateTreeItem.Folder(folderName, folderPath)
+                } as TemplateTreeItem.Folder
+            }
+            val componentName = parts.last()
+            currentFolder.children[componentName] = TemplateTreeItem.Component(component, component.id)
+        }
+        root
+    }
+
+    var expandedFolders by remember { mutableStateOf(setOf<String>()) }
     var selectedComponent by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
 
     val favoritesService = remember { FavoritesService.getInstance() }
     var favoritesUpdated by remember { mutableLongStateOf(0L) }
 
-    val filteredComponents = remember(componentsMetadata, searchQuery, favoritesUpdated) {
-        val sorted = componentsMetadata.sortedWith(
-            compareByDescending<ComponentMetadata> { favoritesService.isFavorite(it.id) }
-                .thenBy { it.name }
-        )
+    val displayItems = remember(treeRoot, searchQuery, favoritesUpdated, expandedFolders) {
+        val items = mutableListOf<Pair<Int, TemplateTreeItem>>()
 
-        if (searchQuery.isBlank()) {
-            sorted
-        } else {
-            sorted.filter { component ->
-                component.name.contains(searchQuery, ignoreCase = true) ||
-                        component.tags.any { it.contains(searchQuery, ignoreCase = true) }
+        fun addItems(folder: TemplateTreeItem.Folder, depth: Int) {
+            val sortedChildren = folder.children.values.sortedWith { a, b ->
+                when {
+                    a is TemplateTreeItem.Folder && b is TemplateTreeItem.Component -> -1
+                    a is TemplateTreeItem.Component && b is TemplateTreeItem.Folder -> 1
+                    a is TemplateTreeItem.Folder && b is TemplateTreeItem.Folder -> a.name.compareTo(b.name)
+                    a is TemplateTreeItem.Component && b is TemplateTreeItem.Component -> {
+                        val favA = favoritesService.isFavorite(a.metadata.id)
+                        val favB = favoritesService.isFavorite(b.metadata.id)
+                        if (favA != favB) if (favA) -1 else 1
+                        else a.metadata.name.compareTo(b.metadata.name)
+                    }
+                    else -> 0
+                }
+            }
+
+            for (item in sortedChildren) {
+                if (searchQuery.isNotBlank()) {
+                    // In search mode, we flatten everything that matches
+                    if (item is TemplateTreeItem.Component) {
+                        if (item.metadata.name.contains(searchQuery, ignoreCase = true) ||
+                            item.metadata.tags.any { it.contains(searchQuery, ignoreCase = true) }
+                        ) {
+                            items.add(depth to item)
+                        }
+                    } else if (item is TemplateTreeItem.Folder) {
+                        addItems(item, depth)
+                    }
+                } else {
+                    items.add(depth to item)
+                    if (item is TemplateTreeItem.Folder && expandedFolders.contains(item.relativePath)) {
+                        addItems(item, depth + 1)
+                    }
+                }
             }
         }
+
+        addItems(treeRoot, 0)
+        items
     }
 
     val splitLayoutState = rememberSplitLayoutState(0.3f)
@@ -87,25 +149,45 @@ fun DevFastToolWindowContent(project: Project) {
                 )
                 Divider(orientation = Orientation.Horizontal)
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(filteredComponents, key = { it.id }) { component ->
+                    items(displayItems, key = { (it.second as? TemplateTreeItem.Component)?.metadata?.id ?: (it.second as TemplateTreeItem.Folder).relativePath }) { (depth, item) ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { selectedComponent = component.id }
-                                .padding(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(text = component.name, modifier = Modifier.weight(1f))
-
-                            val isFavorite = favoritesService.isFavorite(component.id)
-                            ActionButton(
-                                onClick = {
-                                    favoritesService.toggleFavorite(component.id)
-                                    favoritesUpdated++
+                                .clickable {
+                                    if (item is TemplateTreeItem.Folder) {
+                                        expandedFolders = if (expandedFolders.contains(item.relativePath)) {
+                                            expandedFolders - item.relativePath
+                                        } else {
+                                            expandedFolders + item.relativePath
+                                        }
+                                    } else if (item is TemplateTreeItem.Component) {
+                                        selectedComponent = item.metadata.id
+                                    }
                                 }
-                            ) {
-                                Text(if (isFavorite) "★" else "☆")
+                                .padding(vertical = 4.dp, horizontal = 8.dp)
+                                .padding(start = (depth * 16).dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Start
+                        ) {
+                            if (item is TemplateTreeItem.Folder) {
+                                Text(
+                                    text = if (expandedFolders.contains(item.relativePath)) "▼" else "▶",
+                                    modifier = Modifier.padding(end = 4.dp)
+                                )
+                                Text(text = item.name, modifier = Modifier.weight(1f))
+                            } else if (item is TemplateTreeItem.Component) {
+                                Spacer(modifier = Modifier.width(20.dp))
+                                Text(text = item.metadata.name, modifier = Modifier.weight(1f))
+
+                                val isFavorite = favoritesService.isFavorite(item.metadata.id)
+                                ActionButton(
+                                    onClick = {
+                                        favoritesService.toggleFavorite(item.metadata.id)
+                                        favoritesUpdated++
+                                    }
+                                ) {
+                                    Text(if (isFavorite) "★" else "☆")
+                                }
                             }
                         }
                     }
