@@ -38,7 +38,8 @@ class GitLabSettingsConfigurable : Configurable {
         state.gitlabUrl = mySettingsComponent!!.gitlabUrl
         state.projectId = mySettingsComponent!!.projectId
         val newToken = mySettingsComponent!!.token
-        SlowOperations.allowSlowOperations("devFastJavaFx.saveToken").use {
+        @Suppress("UnstableApiUsage")
+        SlowOperations.startSection("devFastJavaFx.saveToken").use {
             GitLabCredentialsManager.saveToken(newToken)
         }
         originalToken = newToken
@@ -48,7 +49,8 @@ class GitLabSettingsConfigurable : Configurable {
         val state = GitLabSettingsState.getInstance().state
         mySettingsComponent!!.gitlabUrl = state.gitlabUrl
         mySettingsComponent!!.projectId = state.projectId
-        val token = SlowOperations.allowSlowOperations("devFastJavaFx.getToken").use {
+        @Suppress("UnstableApiUsage")
+        val token = SlowOperations.startSection("devFastJavaFx.getToken").use {
             GitLabCredentialsManager.getToken()
         } ?: ""
         originalToken = token

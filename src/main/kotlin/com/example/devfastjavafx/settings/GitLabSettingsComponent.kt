@@ -51,35 +51,37 @@ class GitLabSettingsComponent(private val scope: CoroutineScope) {
         loadingIcon.resume()
 
         scope.launch {
-            val result = try {
-                val client = withContext(Dispatchers.IO) { GitLabClient(url, token) }
-                try {
-                    withContext(Dispatchers.IO) { client.getProject(id) }
-                    Result.success("Connection successful")
-                } finally {
-                    withContext(Dispatchers.IO) { client.close() }
+            try {
+                val result = try {
+                    val client = withContext(Dispatchers.IO) { GitLabClient(url, token) }
+                    try {
+                        withContext(Dispatchers.IO) { client.getProject(id) }
+                        Result.success("Connection successful")
+                    } finally {
+                        withContext(Dispatchers.IO) { client.close() }
+                    }
+                } catch (e: ClientRequestException) {
+                    if (e.response.status.value == 401) {
+                        Result.failure(Exception("Authentication failed: Invalid Token (HTTP 401)"))
+                    } else if (e.response.status.value == 404) {
+                        Result.failure(Exception("Connection failed: Repository not found (HTTP 404)"))
+                    } else {
+                        Result.failure(Exception("Connection failed: ${e.message ?: "Status ${e.response.status}"}"))
+                    }
+                } catch (e: Exception) {
+                    Result.failure(Exception("Connection failed: ${e.message ?: "Unknown error"}"))
                 }
-            } catch (e: ClientRequestException) {
-                if (e.response.status.value == 401) {
-                    Result.failure(Exception("Authentication failed: Invalid Token (HTTP 401)"))
-                } else if (e.response.status.value == 404) {
-                    Result.failure(Exception("Connection failed: Repository not found (HTTP 404)"))
-                } else {
-                    Result.failure(Exception("Connection failed: ${e.message ?: "Status ${e.response.status}"}"))
+
+                result.onSuccess { message ->
+                    feedbackLabel.text = message
+                    feedbackLabel.icon = AllIcons.General.InspectionsOK
+                }.onFailure { error ->
+                    feedbackLabel.text = error.message ?: "Unknown error"
+                    feedbackLabel.icon = AllIcons.General.Error
                 }
-            } catch (e: Exception) {
-                Result.failure(Exception("Connection failed: ${e.message ?: "Unknown error"}"))
-            }
-
-            loadingIcon.suspend()
-            loadingIcon.isVisible = false
-
-            result.onSuccess { message ->
-                feedbackLabel.text = message
-                feedbackLabel.icon = AllIcons.General.InspectionsOK
-            }.onFailure { error ->
-                feedbackLabel.text = error.message ?: "Unknown error"
-                feedbackLabel.icon = AllIcons.General.Error
+            } finally {
+                loadingIcon.suspend()
+                loadingIcon.isVisible = false
             }
         }
     }

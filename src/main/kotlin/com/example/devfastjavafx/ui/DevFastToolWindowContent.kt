@@ -24,6 +24,8 @@ import org.jetbrains.jewel.ui.component.HorizontalSplitLayout
 import kotlinx.serialization.json.Json
 import org.jetbrains.jewel.ui.component.Text
 import org.jetbrains.jewel.ui.component.TextField
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import org.jetbrains.jewel.ui.component.rememberSplitLayoutState
 import java.nio.file.Paths
 
@@ -64,7 +66,8 @@ fun DevFastToolWindowContent(project: Project) {
     val treeRoot = remember(componentsMetadata) {
         val root = TemplateTreeItem.Folder("", "")
         for (component in componentsMetadata) {
-            val parts = component.id.split("/")
+            val normalizedId = component.id.replace("\\", "/")
+            val parts = normalizedId.split("/")
             var currentFolder = root
             for (i in 0 until parts.size - 1) {
                 val folderName = parts[i]
@@ -74,20 +77,21 @@ fun DevFastToolWindowContent(project: Project) {
                 } as TemplateTreeItem.Folder
             }
             val componentName = parts.last()
-            currentFolder.children[componentName] = TemplateTreeItem.Component(component, component.id)
+            currentFolder.children[componentName] = TemplateTreeItem.Component(component, normalizedId)
         }
         root
     }
 
     var expandedFolders by remember { mutableStateOf(setOf<String>()) }
     var selectedComponent by remember { mutableStateOf<String?>(null) }
-    var searchQuery by remember { mutableStateOf("") }
+    val searchState = rememberTextFieldState("")
 
     val favoritesService = remember { FavoritesService.getInstance() }
     var favoritesUpdated by remember { mutableLongStateOf(0L) }
 
-    val displayItems = remember(treeRoot, searchQuery, favoritesUpdated, expandedFolders) {
+    val displayItems = remember(treeRoot, searchState.text, favoritesUpdated, expandedFolders) {
         val items = mutableListOf<Pair<Int, TemplateTreeItem>>()
+        val searchQuery = searchState.text.toString()
 
         fun addItems(folder: TemplateTreeItem.Folder, depth: Int) {
             val sortedChildren = folder.children.values.sortedWith { a, b ->
@@ -142,8 +146,7 @@ fun DevFastToolWindowContent(project: Project) {
                     modifier = Modifier.padding(8.dp)
                 )
                 TextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
+                    state = searchState,
                     modifier = Modifier.fillMaxWidth().padding(8.dp),
                     placeholder = { Text("Search components...") }
                 )
@@ -196,10 +199,14 @@ fun DevFastToolWindowContent(project: Project) {
         },
         second = {
             if (selectedComponent != null) {
-                val componentDirPath = Paths.get(PathManager.getSystemPath(), "devFastJavaFx/templates", selectedComponent!!)
-                val markdownParser = remember(selectedComponent) { MarkdownParser(componentDirPath) }
+                val normalizedSelectedId = selectedComponent!!.replace("\\", "/")
+                val componentDirPath = Paths.get(PathManager.getSystemPath(), "devFastJavaFx/templates", normalizedSelectedId)
+                val markdownParser = remember(normalizedSelectedId) { MarkdownParser(componentDirPath) }
 
-                val readmePath = allFiles.find { it.contains(selectedComponent!!) && it.endsWith("README.md") }
+                val readmePath = allFiles.find {
+                    val normalizedPath = it.replace("\\", "/")
+                    normalizedPath.startsWith(normalizedSelectedId) && normalizedPath.endsWith("README.md")
+                }
                 if (readmePath != null) {
                     val readmeContent = TemplateCache.loadTemplate(readmePath)
                     if (readmeContent != null) {
