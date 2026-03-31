@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "com.example.devfastjavafx"
-version = "0.1.0-alpha"
+version = "0.2.0-beta"
 
 repositories {
     google()
@@ -29,9 +29,10 @@ dependencies {
     implementation("io.ktor:ktor-client-cio:2.3.7")
     implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
 
     implementation("com.vladsch.flexmark:flexmark-all:0.64.8")
-    implementation("net.sourceforge.plantuml:plantuml:1.2023.12")
+    implementation("net.sourceforge.plantuml:plantuml:1.2025.2")
 
     implementation("org.jetbrains.jewel:jewel-ide-laf-bridge-243:0.27.0")
     api(compose.desktop.currentOs) {
@@ -46,7 +47,7 @@ intellijPlatform {
     pluginConfiguration {
         id = "com.example.devfastjavafx"
         name = "devFastJavaFx"
-        version = "0.1.0-alpha"
+        version = "0.2.0-beta"
 
         vendor {
             name = "Example"

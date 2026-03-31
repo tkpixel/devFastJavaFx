@@ -37,19 +37,39 @@ class MarkdownParser(private val componentDirectory: Path) {
                 blocks.add(MarkdownBlock.Heading(node.text.toString(), node.level))
             }
             is Paragraph -> {
-                val text = node.chars.toString().trim()
-                when {
-                    text.startsWith("@[code](") && text.endsWith(")") -> {
-                        val filename = text.substringAfter("@[code](").substringBeforeLast(")")
-                        blocks.add(resolveCodeBlock(filename))
+                val rawText = node.chars.toString()
+                val lines = rawText.lines()
+                val textLines = mutableListOf<String>()
+
+                for (line in lines) {
+                    val trimmed = line.trim()
+                    when {
+                        trimmed.startsWith("@[code](") && trimmed.endsWith(")") -> {
+                            // Flush accumulated text lines first
+                            if (textLines.isNotEmpty()) {
+                                val joined = textLines.joinToString("\n").trim()
+                                if (joined.isNotBlank()) blocks.add(MarkdownBlock.Text(renderInlines(node, joined)))
+                                textLines.clear()
+                            }
+                            val filename = trimmed.substringAfter("@[code](").substringBeforeLast(")")
+                            blocks.add(resolveCodeBlock(filename))
+                        }
+                        trimmed.startsWith("@[plantuml](") && trimmed.endsWith(")") -> {
+                            if (textLines.isNotEmpty()) {
+                                val joined = textLines.joinToString("\n").trim()
+                                if (joined.isNotBlank()) blocks.add(MarkdownBlock.Text(renderInlines(node, joined)))
+                                textLines.clear()
+                            }
+                            val filename = trimmed.substringAfter("@[plantuml](").substringBeforeLast(")")
+                            blocks.add(resolvePlantUmlBlock(filename))
+                        }
+                        else -> textLines.add(line)
                     }
-                    text.startsWith("@[plantuml](") && text.endsWith(")") -> {
-                        val filename = text.substringAfter("@[plantuml](").substringBeforeLast(")")
-                        blocks.add(resolvePlantUmlBlock(filename))
-                    }
-                    else -> {
-                        blocks.add(MarkdownBlock.Text(renderInlines(node)))
-                    }
+                }
+                // Flush remaining text
+                if (textLines.isNotEmpty()) {
+                    val joined = textLines.joinToString("\n").trim()
+                    if (joined.isNotBlank()) blocks.add(MarkdownBlock.Text(renderInlines(node, joined)))
                 }
             }
             is FencedCodeBlock -> {
@@ -89,6 +109,10 @@ class MarkdownParser(private val componentDirectory: Path) {
             }
             child = child.next
         }
+    }
+
+    private fun renderInlines(node: Node, plainText: String): AnnotatedString = buildAnnotatedString {
+        append(plainText)
     }
 
     private fun resolveCodeBlock(filename: String): MarkdownBlock {

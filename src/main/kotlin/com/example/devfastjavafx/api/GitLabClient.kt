@@ -3,6 +3,7 @@ package com.example.devfastjavafx.api
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.serialization.kotlinx.json.*
@@ -21,6 +22,11 @@ class GitLabClient(
                 coerceInputValues = true
             })
         }
+        install(HttpTimeout) {
+            requestTimeoutMillis = 10000 // 10 seconds
+            connectTimeoutMillis = 5000  // 5 seconds
+            socketTimeoutMillis = 10000
+        }
     }
 
     suspend fun getRepositoryTree(projectId: String, path: String = "", recursive: Boolean = true): List<GitLabTreeItem> {
@@ -31,7 +37,13 @@ class GitLabClient(
         }.body()
     }
 
-    suspend fun getFileContent(projectId: String, filePath: String, ref: String = "main"): GitLabFile {
+    suspend fun getProject(projectId: String): GitLabProject {
+        return client.get("$baseUrl/api/v4/projects/$projectId") {
+            privateToken?.let { header("PRIVATE-TOKEN", it) }
+        }.body()
+    }
+
+    suspend fun getFileContent(projectId: String, filePath: String, ref: String = "master"): GitLabFile {
         val encodedFilePath = URLEncoder.encode(filePath, StandardCharsets.UTF_8.toString())
         return client.get("$baseUrl/api/v4/projects/$projectId/repository/files/$encodedFilePath") {
             parameter("ref", ref)

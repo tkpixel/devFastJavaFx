@@ -8,6 +8,11 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <applicationService serviceImplementation="com.example.devfastjavafx.service.FavoritesService"/>
+        <applicationService serviceImplementation="com.example.devfastjavafx.settings.GitLabSettingsState"/>
+        <applicationConfigurable instance="com.example.devfastjavafx.settings.GitLabSettingsConfigurable"
+                                 id="com.example.devfastjavafx.settings.GitLabSettingsConfigurable"
+                                 displayName="DevFast GitLab Settings"
+                                 parentId="tools"/>
         <postStartupActivity implementation="com.example.devfastjavafx.activity.TemplateStartupActivity"/>
         <toolWindow id="DevFastJavaFx" anchor="right" factoryClass="com.example.devfastjavafx.ui.DevFastToolWindowFactory" />
     </extensions>
