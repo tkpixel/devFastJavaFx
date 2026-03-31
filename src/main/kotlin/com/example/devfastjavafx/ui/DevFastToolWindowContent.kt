@@ -205,7 +205,8 @@ fun DevFastToolWindowContent(project: Project) {
 
                 val readmePath = allFiles.find {
                     val normalizedPath = it.replace("\\", "/")
-                    normalizedPath.startsWith(normalizedSelectedId) && normalizedPath.endsWith("README.md")
+                    val parentDir = if (normalizedPath.contains("/")) normalizedPath.substringBeforeLast("/") else ""
+                    parentDir == normalizedSelectedId && normalizedPath.endsWith("README.md")
                 }
                 if (readmePath != null) {
                     val readmeContent = TemplateCache.loadTemplate(readmePath)

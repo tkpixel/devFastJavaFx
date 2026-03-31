@@ -3,6 +3,7 @@ package com.example.devfastjavafx.api
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.serialization.kotlinx.json.*
@@ -20,6 +21,11 @@ class GitLabClient(
                 ignoreUnknownKeys = true
                 coerceInputValues = true
             })
+        }
+        install(HttpTimeout) {
+            requestTimeoutMillis = 10000 // 10 seconds
+            connectTimeoutMillis = 5000  // 5 seconds
+            socketTimeoutMillis = 10000
         }
     }
 
