@@ -5,6 +5,7 @@ import com.example.devfastjavafx.cache.TemplateCache
 import com.example.devfastjavafx.credentials.GitLabCredentialsManager
 import com.example.devfastjavafx.settings.GitLabSettingsState
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,10 +15,9 @@ import java.util.*
 @Service(Service.Level.APP)
 class TemplateLoaderService(private val scope: CoroutineScope) {
     private val LOG = logger<TemplateLoaderService>()
-
     private val TEMPLATE_PATH = "templates"
 
-    fun loadTemplates() {
+    fun loadTemplates(onComplete: (() -> Unit)? = null) {
         scope.launch(Dispatchers.IO) {
             try {
                 val settings = GitLabSettingsState.getInstance().state
@@ -50,7 +50,13 @@ class TemplateLoaderService(private val scope: CoroutineScope) {
                 }
             } catch (e: Exception) {
                 LOG.error("Failed to load templates from GitLab", e)
+            } finally {
+                onComplete?.invoke()
             }
         }
+    }
+
+    companion object {
+        fun getInstance(): TemplateLoaderService = service()
     }
 }

@@ -2,11 +2,12 @@ package com.example.devfastjavafx.settings
 
 import com.example.devfastjavafx.credentials.GitLabCredentialsManager
 import com.intellij.openapi.options.Configurable
-import com.intellij.util.SlowOperations
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jetbrains.annotations.Nls
 import javax.swing.JComponent
 
@@ -38,23 +39,25 @@ class GitLabSettingsConfigurable : Configurable {
         state.gitlabUrl = mySettingsComponent!!.gitlabUrl
         state.projectId = mySettingsComponent!!.projectId
         val newToken = mySettingsComponent!!.token
-        @Suppress("UnstableApiUsage")
-        SlowOperations.startSection("devFastJavaFx.saveToken").use {
-            GitLabCredentialsManager.saveToken(newToken)
-        }
         originalToken = newToken
+        scope!!.launch {
+            withContext(Dispatchers.IO) {
+                GitLabCredentialsManager.saveToken(newToken)
+            }
+        }
     }
 
     override fun reset() {
         val state = GitLabSettingsState.getInstance().state
         mySettingsComponent!!.gitlabUrl = state.gitlabUrl
         mySettingsComponent!!.projectId = state.projectId
-        @Suppress("UnstableApiUsage")
-        val token = SlowOperations.startSection("devFastJavaFx.getToken").use {
-            GitLabCredentialsManager.getToken()
-        } ?: ""
-        originalToken = token
-        mySettingsComponent!!.token = token
+        scope!!.launch {
+            val token = withContext(Dispatchers.IO) {
+                GitLabCredentialsManager.getToken()
+            } ?: ""
+            originalToken = token
+            mySettingsComponent?.token = token
+        }
     }
 
     override fun disposeUIResources() {

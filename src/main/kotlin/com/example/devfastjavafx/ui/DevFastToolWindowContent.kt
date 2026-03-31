@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import com.example.devfastjavafx.api.ComponentMetadata
 import com.example.devfastjavafx.cache.TemplateCache
 import com.example.devfastjavafx.service.FavoritesService
+import com.example.devfastjavafx.service.TemplateLoaderService
 import com.example.devfastjavafx.ui.markdown.MarkdownParser
 import com.example.devfastjavafx.ui.markdown.MarkdownRenderer
 import com.intellij.openapi.application.PathManager
@@ -19,6 +20,7 @@ import com.intellij.openapi.project.Project
 import androidx.compose.ui.Alignment
 import org.jetbrains.jewel.ui.Orientation
 import org.jetbrains.jewel.ui.component.ActionButton
+import org.jetbrains.jewel.ui.component.CircularProgressIndicator
 import org.jetbrains.jewel.ui.component.Divider
 import org.jetbrains.jewel.ui.component.HorizontalSplitLayout
 import kotlinx.serialization.json.Json
@@ -47,14 +49,18 @@ sealed class TemplateTreeItem {
 
 @Composable
 fun DevFastToolWindowContent(project: Project) {
-    val allFiles = remember { TemplateCache.listCachedTemplates() }
+    var refreshTick by remember { mutableLongStateOf(0L) }
+    var isRefreshing by remember { mutableStateOf(false) }
+
+    val allFiles = remember(refreshTick) { TemplateCache.listCachedTemplates() }
     val componentsMetadata = remember(allFiles) {
-        allFiles.filter { it.endsWith("manifest.json") }
+        allFiles.filter { it.endsWith("manifest.json") || it.endsWith("manifest.json".replace("/", "\\")) }
             .mapNotNull { path ->
                 TemplateCache.loadTemplate(path)?.let { content ->
                     try {
                         val metadata = json.decodeFromString<ComponentMetadata>(content)
-                        val relativePath = path.substringBeforeLast("/manifest.json")
+                        val normalizedPath = path.replace("\\", "/")
+                        val relativePath = normalizedPath.substringBeforeLast("/manifest.json")
                         metadata.copy(id = relativePath) // Use the full relative path as the unique ID
                     } catch (e: Exception) {
                         null
@@ -141,10 +147,27 @@ fun DevFastToolWindowContent(project: Project) {
         modifier = Modifier.fillMaxSize(),
         first = {
             Column(modifier = Modifier.fillMaxSize()) {
-                Text(
-                    text = "JavaFX Components",
-                    modifier = Modifier.padding(8.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "JavaFX Components")
+                    if (isRefreshing) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                    } else {
+                        ActionButton(onClick = {
+                            isRefreshing = true
+                            TemplateCache.clearCache()
+                            TemplateLoaderService.getInstance().loadTemplates {
+                                refreshTick++
+                                isRefreshing = false
+                            }
+                        }) {
+                            Text("↻")
+                        }
+                    }
+                }
                 TextField(
                     state = searchState,
                     modifier = Modifier.fillMaxWidth().padding(8.dp),

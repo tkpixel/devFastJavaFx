@@ -43,7 +43,7 @@ class GitLabClient(
         }.body()
     }
 
-    suspend fun getFileContent(projectId: String, filePath: String, ref: String = "main"): GitLabFile {
+    suspend fun getFileContent(projectId: String, filePath: String, ref: String = "master"): GitLabFile {
         val encodedFilePath = URLEncoder.encode(filePath, StandardCharsets.UTF_8.toString())
         return client.get("$baseUrl/api/v4/projects/$projectId/repository/files/$encodedFilePath") {
             parameter("ref", ref)
