@@ -30,7 +30,7 @@ import java.nio.file.Paths
 private val json = Json { ignoreUnknownKeys = true }
 
 @Composable
-fun DevFastToolWindowContent(project: Project) {
+fun DevFastToolWindowContent(project: Project, showOnlyFavorites: Boolean = false) {
     val allFiles = remember { TemplateCache.listCachedTemplates() }
     val componentsMetadata = remember(allFiles) {
         allFiles.filter { it.endsWith("manifest.json") }
@@ -52,16 +52,20 @@ fun DevFastToolWindowContent(project: Project) {
     val favoritesService = remember { FavoritesService.getInstance() }
     var favoritesUpdated by remember { mutableLongStateOf(0L) }
 
-    val filteredComponents = remember(componentsMetadata, searchQuery, favoritesUpdated) {
-        val sorted = componentsMetadata.sortedWith(
-            compareByDescending<ComponentMetadata> { favoritesService.isFavorite(it.id) }
-                .thenBy { it.name }
-        )
+    val filteredComponents = remember(componentsMetadata, searchQuery, favoritesUpdated, showOnlyFavorites) {
+        val baseList = if (showOnlyFavorites) {
+            componentsMetadata.filter { favoritesService.isFavorite(it.id) }.sortedBy { it.name }
+        } else {
+            componentsMetadata.sortedWith(
+                compareByDescending<ComponentMetadata> { favoritesService.isFavorite(it.id) }
+                    .thenBy { it.name }
+            )
+        }
 
         if (searchQuery.isBlank()) {
-            sorted
+            baseList
         } else {
-            sorted.filter { component ->
+            baseList.filter { component ->
                 component.name.contains(searchQuery, ignoreCase = true) ||
                         component.tags.any { it.contains(searchQuery, ignoreCase = true) }
             }

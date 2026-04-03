@@ -10,5 +10,8 @@ class DevFastToolWindowFactory : ToolWindowFactory {
         toolWindow.addComposeTab("Templates") {
             DevFastToolWindowContent(project)
         }
+        toolWindow.addComposeTab("Favorites") {
+            DevFastToolWindowContent(project, showOnlyFavorites = true)
+        }
     }
 }
